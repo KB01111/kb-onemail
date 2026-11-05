@@ -22,6 +22,13 @@ pub fn register() -> Result<(), Box<dyn std::error::Error>> {
         .encode_wide()
         .chain(Some(0))
         .collect::<Vec<_>>();
+    let executable = std::env::current_exe()?;
+    let canonical_executable = executable.canonicalize()?;
+    let icon_path = executable
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
     unsafe {
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
         struct Apartment;
@@ -41,9 +48,13 @@ pub fn register() -> Result<(), Box<dyn std::error::Error>> {
             .position(|value| *value == 0)
             .ok_or("Invalid shortcut target")?;
         let target = PathBuf::from(String::from_utf16(&target[..end])?).canonicalize()?;
-        if target != std::env::current_exe()?.canonicalize()? {
+        if target != canonical_executable {
             return Err("The Start menu shortcut belongs to another installation".into());
         }
+        // Windows Search gets the app icon from the Start menu shortcut. Tauri's
+        // NSIS shortcut has an empty icon location on some installs, so point it
+        // explicitly at the executable's embedded branded icon.
+        link.SetIconLocation(PCWSTR(icon_path.as_ptr()), 0)?;
         // Protocol-only toasts need a stub CLSID to survive in Notification Center.
         let clsid = GUID::from_u128(0x93b45463_9e1a_4196_9f21_b997f0d344ad);
         let key = PROPERTYKEY {

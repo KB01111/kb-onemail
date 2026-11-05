@@ -42,6 +42,9 @@ Var BetterBoxOldExe
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; Windows Search reads the app icon from its Start menu shortcut. Explicitly
+  ; set the icon path so it does not fall back to the generic application icon.
+  CreateShortCut "$SMPROGRAMS\KB OneMail.lnk" "$INSTDIR\kb-onemail.exe" "" "$INSTDIR\kb-onemail.exe" 0 SW_SHOWNORMAL "" "KB OneMail"
   ; A toast can reactivate this application from Action Center after it exits.
   WriteRegStr HKCU "Software\Classes\AppUserModelId\dev.kevinjbridgelal.betterbox" "DisplayName" "KB OneMail"
   WriteRegStr HKCU "Software\Classes\AppUserModelId\dev.kevinjbridgelal.betterbox" "IconUri" "$INSTDIR\kb-onemail.exe"
