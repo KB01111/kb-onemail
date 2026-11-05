@@ -1,4 +1,4 @@
-param([switch]$Publish)
+param([switch]$Publish, [switch]$SelfTest)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $PSNativeCommandUseErrorActionPreference = $true
@@ -6,6 +6,29 @@ $PSNativeCommandUseErrorActionPreference = $true
 function Invoke-Checked([string]$Command, [string[]]$Arguments) {
     & $Command @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Command failed ($LASTEXITCODE)" }
+}
+
+function Read-ChannelVersion($Content) {
+    $json = if ($Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($Content) } else { [string]$Content }
+    $manifest = $json | ConvertFrom-Json
+    if ($manifest.version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid published channel version' }
+    return [version]$manifest.version
+}
+
+if ($SelfTest) {
+    if ($Publish) { throw 'SelfTest cannot publish' }
+    $json = '{"version":"0.3.370"}'
+    foreach ($content in @($json, [Text.Encoding]::UTF8.GetBytes($json))) {
+        if ((Read-ChannelVersion $content) -ne [version]'0.3.370') { throw 'Channel decoding failed' }
+        if ((Read-ChannelVersion $content) -lt [version]'0.3.369') { throw 'Channel regression comparison failed' }
+    }
+    foreach ($invalid in @('{"version":"main"}', '{}', 'not-json')) {
+        $rejected = $false
+        try { $null = Read-ChannelVersion $invalid } catch { $rejected = $true }
+        if (!$rejected) { throw 'Malformed channel was accepted' }
+    }
+    Write-Output 'Channel JSON/text and binary decoding, version ordering and malformed input checks passed.'
+    return
 }
 
 $root = Split-Path $PSScriptRoot -Parent
@@ -81,8 +104,8 @@ try {
     } else {
         $asset = @($channel[0].assets | Where-Object name -EQ 'latest.json')
         if ($asset.Count) {
-            $current = Invoke-RestMethod $asset[0].browser_download_url
-            if ([version]$current.version -ge [version]$version) { throw 'Refusing to regress or replace the update channel' }
+            $current = Invoke-WebRequest $asset[0].browser_download_url
+            if ((Read-ChannelVersion $current.Content) -ge [version]$version) { throw 'Refusing to regress or replace the update channel' }
         }
     }
     Invoke-Checked gh @('release', 'upload', 'desktop-preview', $manifestPath, '--repo', $repo, '--clobber')
