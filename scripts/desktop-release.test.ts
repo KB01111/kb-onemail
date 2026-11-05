@@ -27,7 +27,7 @@ test("desktop channel targets an immutable versioned installer and carries its s
   const manifest = desktopManifest(input);
   expect(manifest.version).toBe("0.3.0");
   expect(manifest.platforms["windows-x86_64"].url).toBe(
-    "https://github.com/KB01111/kb-onemail/releases/download/desktop-v0.3.0/KB%20OneMail_0.3.0_x64-setup.exe",
+    "https://github.com/KB01111/kb-onemail/releases/download/desktop-v0.3.0/KB.OneMail_0.3.0_x64-setup.exe",
   );
   expect(manifest.platforms["windows-x86_64"].signature).toBe(input.signature);
   expect(manifest.notes).toContain(input.commit);

@@ -31,11 +31,7 @@ pub fn apply(window: &WebviewWindow, appearance: Appearance, enabled: bool) -> b
     #[cfg(windows)]
     if let Ok(raw) = window.hwnd() {
         use windows::Win32::{Foundation::HWND, Graphics::Dwm::*};
-        let caption: u32 = if active {
-            DWMWA_COLOR_NONE
-        } else {
-            DWMWA_COLOR_DEFAULT
-        };
+        let caption = caption_color(dark, active);
         let border = DWMWA_COLOR_DEFAULT;
         let text: u32 = if !active {
             DWMWA_COLOR_DEFAULT
@@ -59,6 +55,17 @@ pub fn apply(window: &WebviewWindow, appearance: Appearance, enabled: bool) -> b
         }
     }
     active
+}
+
+#[cfg(windows)]
+fn caption_color(dark: bool, active: bool) -> u32 {
+    if active {
+        0xfffffffe // DWMWA_COLOR_NONE lets the Mica material show through.
+    } else if dark {
+        0x001c1715 // COLORREF is BGR: match the solid WebView background.
+    } else {
+        0x00ffffff
+    }
 }
 
 #[cfg(windows)]
@@ -110,6 +117,14 @@ fn set_backdrop(hwnd: windows::Win32::Foundation::HWND, dark: bool, requested: b
 
 #[cfg(all(test, windows))]
 mod tests {
+    #[test]
+    fn caption_matches_material_or_solid_theme_instead_of_system_accent() {
+        assert_eq!(super::caption_color(true, true), 0xfffffffe);
+        assert_eq!(super::caption_color(false, true), 0xfffffffe);
+        assert_eq!(super::caption_color(true, false), 0x001c1715);
+        assert_eq!(super::caption_color(false, false), 0x00ffffff);
+    }
+
     #[test]
     fn a_rejected_native_backdrop_never_enables_web_transparency() {
         assert!(!super::set_backdrop(

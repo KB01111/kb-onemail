@@ -52,7 +52,7 @@ if (import.meta.main) {
   ).json();
   const signature = await Bun.file(`${installer}.sig`).text();
   const manifest = desktopManifest({
-    version: config.version,
+    version: process.env.KB_ONEMAIL_RELEASE_VERSION ?? config.version,
     tag,
     commit,
     filename: basename(installer),

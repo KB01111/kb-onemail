@@ -56,11 +56,29 @@ It checks the exact old per-user path and executable version, preserves the
 identifier-based profile, and removes only matching old records and shortcuts.
 Other/custom legacy installations are left alone.
 
-The Windows release workflow builds and signs immutable versioned installer
-assets. Publishing is an explicit manual dispatch with compatible backend and
-installer acceptance recorded. The preview channel manifest is uploaded last.
+Every push to main runs the Windows release workflow. It validates the web
+and native application, builds and signs immutable versioned installer assets,
+and publishes the preview channel manifest last. The patch version is main's
+first-parent commit count (for example 0.3.369), so every main revision has a
+newer desktop version. Main's major/minor version comes from tauri.conf.json.
 Updates verify installer signatures, ask before installation, and protect drafts.
 A failed or missing update channel keeps the current installed application.
+
+If hosted build minutes are unavailable, run the same command locally from a
+clean checkout of the latest origin/main in PowerShell 7:
+
+    pwsh -NoProfile -File scripts/release-desktop.ps1 -Publish
+
+Omit `-Publish` to build and verify without uploading. The command accepts the
+usual Tauri signing environment variables, or loads this user's existing key
+and DPAPI-protected password from `~/.config/kb-onemail/signing`. It never creates
+or rotates a signing key. GitHub CLI must be signed in to publish. A temporary
+Tauri version override keeps generated versions out of source control. Older
+or overtaken main builds cannot advance the update channel.
+
+BetterBox 0.2.1 predates the updater and requires one manual installation of a
+new KB OneMail release. Subsequent builds check automatically after startup
+and daily, and offer installation through Settings → Desktop.
 
 Before releasing, deploy compatible hosted support and record installed Windows
 acceptance against the exact installer SHA-256. See ../docs/windows-hardening.md.
