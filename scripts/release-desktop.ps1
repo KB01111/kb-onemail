@@ -66,11 +66,15 @@ try {
     Invoke-Checked gh @('release', 'create', $tag, '--repo', $repo, '--target', $commit, '--draft', '--prerelease', '--title', "KB OneMail $version - Windows preview", '--notes', $notes)
     Invoke-Checked gh @('release', 'upload', $tag, $installer, "$installer.sig", "$installer.sha256", '--repo', $repo)
     # Verify GitHub's normalized download name before advertising it to installed apps.
-    $release = gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json
+    # GitHub gives an unpublished draft an untagged download URL; check its name first.
+    $release = gh release view $tag --repo $repo --json assets | ConvertFrom-Json
     $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
     $expectedUrl = $manifest.platforms.'windows-x86_64'.url
-    if (!@($release.assets | Where-Object browser_download_url -EQ $expectedUrl).Count) { throw 'Uploaded installer URL does not match update manifest' }
+    $expectedName = [uri]::UnescapeDataString(([uri]$expectedUrl).Segments[-1])
+    if (!@($release.assets | Where-Object name -EQ $expectedName).Count) { throw 'Uploaded installer name does not match update manifest' }
     Invoke-Checked gh @('release', 'edit', $tag, '--repo', $repo, '--draft=false')
+    $published = gh api "repos/$repo/releases/tags/$tag" | ConvertFrom-Json
+    if (!@($published.assets | Where-Object browser_download_url -EQ $expectedUrl).Count) { throw 'Published installer URL does not match update manifest' }
     $channel = @($existing | Where-Object tag_name -EQ 'desktop-preview')
     if (!$channel.Count) {
         Invoke-Checked gh @('release', 'create', 'desktop-preview', '--repo', $repo, '--target', $commit, '--prerelease', '--title', 'KB OneMail preview update channel', '--notes', 'Signed update metadata. Installers live in immutable versioned releases.')
